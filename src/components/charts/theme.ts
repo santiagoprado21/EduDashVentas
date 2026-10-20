@@ -5,6 +5,7 @@ export const COLORS = {
   primary: '#181856',
   comparison: '#599BE4',
   budget: '#89BF52',
+  expense: '#D2312C',
   grid: '#EEF3F9',
   tick: '#9A9DB0',
   label: '#5F6378',

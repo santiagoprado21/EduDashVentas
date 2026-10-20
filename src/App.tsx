@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
-import { AlertTriangle, LayoutDashboard, Package, Table2, Users } from 'lucide-react';
+import { AlertTriangle, LayoutDashboard, Package, Store, Table2, Users } from 'lucide-react';
 import TopBar from './components/TopBar';
 import Sidebar, { type NavItem } from './components/Sidebar';
 import FilterBar from './components/FilterBar';
@@ -9,7 +9,9 @@ import DataPreview from './components/DataPreview';
 import OverviewPage from './pages/OverviewPage';
 import ProductsPage from './pages/ProductsPage';
 import ClientsPage from './pages/ClientsPage';
+import FeriasPage from './pages/FeriasPage';
 import { useSalesData } from './hooks/useSalesData';
+import { useFeriasData } from './hooks/useFeriasData';
 import { parseDataset } from './lib/sales';
 import { DIMENSION_DEFAULTS, applyDimensionFilters, type Filters } from './lib/filters';
 
@@ -19,6 +21,7 @@ const NAV: NavItem[] = [
   { id: 'overview', label: 'Resumen', icon: LayoutDashboard },
   { id: 'products', label: 'Productos', icon: Package },
   { id: 'clients', label: 'Clientes', icon: Users },
+  { id: 'ferias', label: 'Ferias', icon: Store },
   { id: 'data', label: 'Datos', icon: Table2 },
 ];
 
@@ -28,6 +31,7 @@ export default function App() {
   const [tab, setTab] = useState('overview');
   const [filterState, setFilterState] = useState<FilterState>({ year: null, ...DIMENSION_DEFAULTS });
   const sales = useSalesData();
+  const ferias = useFeriasData(sales.data != null);
   const current = NAV.find((n) => n.id === tab)!;
 
   const ds = useMemo(() => (sales.data ? parseDataset(sales.data) : null), [sales.data]);
@@ -45,9 +49,12 @@ export default function App() {
   return (
     <div className="min-h-screen bg-brand-bg">
       <TopBar
-        fetchedAt={sales.data?.fetchedAt}
-        loading={sales.status === 'loading'}
-        onRefresh={sales.refresh}
+        fetchedAt={tab === 'ferias' ? ferias.data?.fetchedAt : sales.data?.fetchedAt}
+        loading={sales.status === 'loading' || ferias.status === 'loading'}
+        onRefresh={() => {
+          sales.refresh();
+          ferias.refresh();
+        }}
         onLogout={sales.logout}
       />
       <Sidebar items={NAV} active={tab} onSelect={setTab} />
@@ -89,7 +96,24 @@ export default function App() {
           </div>
         )}
 
-        {ds && tab !== 'data' && <FilterBar ds={ds} filters={filters} onChange={setFilterState} />}
+        {tab === 'ferias' && ferias.status === 'error' && (
+          <div className="card mb-5 p-4 flex items-start gap-3 border-red-200 bg-red-50">
+            <AlertTriangle size={14} className="text-alert-critical mt-0.5" />
+            <div>
+              <div className="text-[12px] font-semibold text-red-700">No se pudo leer el sheet de ferias</div>
+              <div className="text-[11px] text-red-600 mt-0.5">{ferias.error}</div>
+            </div>
+          </div>
+        )}
+
+        {tab === 'ferias' && sales.data && !ferias.data && ferias.status === 'loading' && (
+          <div className="flex flex-col items-center py-24 gap-3">
+            <div className="w-8 h-8 border-2 border-brand-border border-t-brand-navy rounded-full animate-spin" />
+            <span className="text-[12px] text-brand-text-muted">Cargando ferias…</span>
+          </div>
+        )}
+
+        {ds && tab !== 'data' && tab !== 'ferias' && <FilterBar ds={ds} filters={filters} onChange={setFilterState} />}
 
         <AnimatePresence mode="wait">
           {sales.data && filtered && (
@@ -103,6 +127,7 @@ export default function App() {
               {tab === 'overview' && <OverviewPage ds={filtered} filters={filters} />}
               {tab === 'products' && <ProductsPage ds={filtered} filters={filters} />}
               {tab === 'clients' && <ClientsPage ds={filtered} filters={filters} />}
+              {tab === 'ferias' && ferias.data && <FeriasPage data={ferias.data} />}
               {tab === 'data' && <DataPreview data={sales.data} />}
             </motion.div>
           )}

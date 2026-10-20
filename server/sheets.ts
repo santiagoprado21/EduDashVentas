@@ -26,14 +26,12 @@ function getAuth(): GoogleAuth {
   return auth;
 }
 
-export async function fetchSheet(sheetId: string, range: string): Promise<SheetData> {
-  const client = await getAuth().getClient();
-  const url =
-    `https://sheets.googleapis.com/v4/spreadsheets/${encodeURIComponent(sheetId)}` +
-    `/values/${encodeURIComponent(range)}?valueRenderOption=UNFORMATTED_VALUE&dateTimeRenderOption=FORMATTED_STRING`;
+const VALUE_OPTIONS = 'valueRenderOption=UNFORMATTED_VALUE&dateTimeRenderOption=FORMATTED_STRING';
+const spreadsheetUrl = (sheetId: string) =>
+  `https://sheets.googleapis.com/v4/spreadsheets/${encodeURIComponent(sheetId)}`;
 
-  const res = await client.request<{ values?: unknown[][] }>({ url });
-  const [headerRow = [], ...body] = res.data.values ?? [];
+function toSheetData(values: unknown[][] = []): SheetData {
+  const [headerRow = [], ...body] = values;
   const headers = headerRow.map((h) => String(h).trim());
 
   const rows = body
@@ -43,4 +41,20 @@ export async function fetchSheet(sheetId: string, range: string): Promise<SheetD
     );
 
   return { headers, rows, fetchedAt: new Date().toISOString() };
+}
+
+export async function fetchSheet(sheetId: string, range: string): Promise<SheetData> {
+  const client = await getAuth().getClient();
+  const url = `${spreadsheetUrl(sheetId)}/values/${encodeURIComponent(range)}?${VALUE_OPTIONS}`;
+  const res = await client.request<{ values?: unknown[][] }>({ url });
+  return toSheetData(res.data.values);
+}
+
+/** Lee varias pestañas del mismo archivo en una sola llamada. */
+export async function fetchTabs(sheetId: string, tabs: string[]): Promise<Record<string, SheetData>> {
+  const client = await getAuth().getClient();
+  const ranges = tabs.map((t) => `ranges=${encodeURIComponent(`'${t}'`)}`).join('&');
+  const url = `${spreadsheetUrl(sheetId)}/values:batchGet?${ranges}&${VALUE_OPTIONS}`;
+  const res = await client.request<{ valueRanges: { values?: unknown[][] }[] }>({ url });
+  return Object.fromEntries(tabs.map((t, i) => [t, toSheetData(res.data.valueRanges[i]?.values)]));
 }

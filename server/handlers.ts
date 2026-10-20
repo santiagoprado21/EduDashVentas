@@ -8,7 +8,7 @@ import {
   readCookie,
   sessionCookie,
 } from './auth.js';
-import { fetchSheet, type SheetData } from './sheets.js';
+import { fetchSheet, fetchTabs, type SheetData } from './sheets.js';
 
 /** Subconjunto común entre Express y las funciones de Vercel. */
 export interface Req {
@@ -26,7 +26,17 @@ export interface Res {
 
 const FAILED_LOGIN_DELAY_MS = 800;
 const TTL_MS = Number(process.env.CACHE_TTL_SECONDS ?? 60) * 1000;
-let cache: { data: SheetData; expires: number } | null = null;
+const FERIAS_TABS = ['Ferias', 'Ventas', 'Gastos'];
+
+const caches = new Map<string, { data: unknown; expires: number }>();
+
+async function cached<T>(key: string, force: boolean, load: () => Promise<T>): Promise<T> {
+  const hit = caches.get(key);
+  if (!force && hit && hit.expires > Date.now()) return hit.data as T;
+  const data = await load();
+  caches.set(key, { data, expires: Date.now() + TTL_MS });
+  return data;
+}
 
 const cookieHeader = (req: Req) => {
   const c = req.headers.cookie;
@@ -58,17 +68,34 @@ export async function salesHandler(req: Req, res: Res) {
     }
 
     res.setHeader('Cache-Control', 'private, no-store');
-    const force = req.query.refresh === '1';
-    if (!force && cache && cache.expires > Date.now()) {
-      res.json(cache.data);
+    res.json(await cached<SheetData>('sales', req.query.refresh === '1', () => fetchSheet(sheetId, range)));
+  } catch (err) {
+    handleError(res, err, 'sales');
+  }
+}
+
+export async function feriasHandler(req: Req, res: Res) {
+  try {
+    if (!authorized(req)) {
+      res.status(401).json({ error: 'No autorizado' });
       return;
     }
 
-    const data = await fetchSheet(sheetId, range);
-    cache = { data, expires: Date.now() + TTL_MS };
-    res.json(data);
+    const sheetId = process.env.FERIAS_SHEET_ID;
+    if (!sheetId) {
+      res.status(500).json({ error: 'Falta FERIAS_SHEET_ID en las variables de entorno' });
+      return;
+    }
+
+    res.setHeader('Cache-Control', 'private, no-store');
+    res.json(
+      await cached('ferias', req.query.refresh === '1', async () => ({
+        tabs: await fetchTabs(sheetId, FERIAS_TABS),
+        fetchedAt: new Date().toISOString(),
+      })),
+    );
   } catch (err) {
-    handleError(res, err, 'sales');
+    handleError(res, err, 'ferias');
   }
 }
 

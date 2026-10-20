@@ -8,9 +8,20 @@ interface Props {
   metric?: 'net' | 'units';
   limit?: number;
   note?: string;
+  unitsLabel?: string;
+  valueLabel?: string;
 }
 
-export default function RankingTable({ title, keyLabel, rows, metric = 'net', limit = 10, note }: Props) {
+export default function RankingTable({
+  title,
+  keyLabel,
+  rows,
+  metric = 'net',
+  limit = 10,
+  note,
+  unitsLabel = 'Unid.',
+  valueLabel = 'Ventas',
+}: Props) {
   const totalUnits = rows.reduce((sum, r) => sum + r.units, 0);
   const shareOf = (r: RankRow) => (metric === 'net' ? r.share : totalUnits ? r.units / totalUnits : 0);
   const sorted = metric === 'net' ? rows : [...rows].sort((a, b) => b.units - a.units);
@@ -31,10 +42,10 @@ export default function RankingTable({ title, keyLabel, rows, metric = 'net', li
             <tr className="border-b border-brand-border text-brand-text-secondary">
               <th className="text-left font-semibold py-1.5 w-6">#</th>
               <th className="text-left font-semibold py-1.5">{keyLabel}</th>
-              <th className="text-right font-semibold py-1.5">Ventas</th>
-              <th className="text-right font-semibold py-1.5 w-14">Unid.</th>
+              <th className="text-right font-semibold py-1.5">{valueLabel}</th>
+              <th className="text-right font-semibold py-1.5 w-14">{unitsLabel}</th>
               <th className="text-left font-semibold py-1.5 pl-4 w-36">
-                Part. {metric === 'net' ? 'ventas' : 'unidades'}
+                Part. {metric === 'net' ? valueLabel.toLowerCase() : unitsLabel.toLowerCase()}
               </th>
             </tr>
           </thead>
