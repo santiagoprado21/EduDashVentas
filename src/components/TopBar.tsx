@@ -1,12 +1,13 @@
-import { RefreshCw } from 'lucide-react';
+import { LogOut, RefreshCw } from 'lucide-react';
 
 interface Props {
   fetchedAt?: string;
   loading: boolean;
   onRefresh: () => void;
+  onLogout: () => void;
 }
 
-export default function TopBar({ fetchedAt, loading, onRefresh }: Props) {
+export default function TopBar({ fetchedAt, loading, onRefresh, onLogout }: Props) {
   return (
     <header
       className="fixed top-0 left-0 right-0 bg-white border-b-2 border-brand-red z-30 flex items-center"
@@ -35,6 +36,10 @@ export default function TopBar({ fetchedAt, loading, onRefresh }: Props) {
           <button className="btn-secondary" onClick={onRefresh} disabled={loading}>
             <RefreshCw size={11} className={loading ? 'animate-spin' : ''} />
             Refrescar
+          </button>
+          <button className="btn-secondary" onClick={onLogout} title="Cerrar sesión">
+            <LogOut size={11} />
+            Salir
           </button>
         </div>
       </div>

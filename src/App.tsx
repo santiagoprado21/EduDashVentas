@@ -4,6 +4,7 @@ import { AlertTriangle, LayoutDashboard, Package, Table2, Users } from 'lucide-r
 import TopBar from './components/TopBar';
 import Sidebar, { type NavItem } from './components/Sidebar';
 import FilterBar from './components/FilterBar';
+import LoginScreen from './components/LoginScreen';
 import DataPreview from './components/DataPreview';
 import OverviewPage from './pages/OverviewPage';
 import ProductsPage from './pages/ProductsPage';
@@ -39,12 +40,15 @@ export default function App() {
     [ds, filters.vendor, filters.category, filters.prefix, filters.clientType],
   );
 
+  if (sales.status === 'unauthorized') return <LoginScreen onSuccess={sales.reload} />;
+
   return (
     <div className="min-h-screen bg-brand-bg">
       <TopBar
         fetchedAt={sales.data?.fetchedAt}
         loading={sales.status === 'loading'}
         onRefresh={sales.refresh}
+        onLogout={sales.logout}
       />
       <Sidebar items={NAV} active={tab} onSelect={setTab} />
 

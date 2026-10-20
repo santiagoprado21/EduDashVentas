@@ -8,6 +8,7 @@ export interface SheetData {
 
 type State =
   | { status: 'loading'; data: SheetData | null }
+  | { status: 'unauthorized'; data: null }
   | { status: 'ready'; data: SheetData }
   | { status: 'error'; data: SheetData | null; error: string };
 
@@ -18,6 +19,10 @@ export function useSalesData() {
     setState((s) => ({ status: 'loading', data: s.data }));
     try {
       const res = await fetch(`/api/sales${refresh ? '?refresh=1' : ''}`);
+      if (res.status === 401) {
+        setState({ status: 'unauthorized', data: null });
+        return;
+      }
       const body = await res.json();
       if (!res.ok) throw new Error(body.error ?? `HTTP ${res.status}`);
       setState({ status: 'ready', data: body });
@@ -34,5 +39,10 @@ export function useSalesData() {
     load();
   }, [load]);
 
-  return { ...state, refresh: () => load(true) };
+  const logout = useCallback(async () => {
+    await fetch('/api/logout', { method: 'POST' });
+    setState({ status: 'unauthorized', data: null });
+  }, []);
+
+  return { ...state, refresh: () => load(true), reload: () => load(), logout };
 }
