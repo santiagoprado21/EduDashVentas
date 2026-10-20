@@ -1,0 +1,73 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --sidebar-width: 240px;
+  --topbar-height: 52px;
+}
+
+@layer base {
+  body {
+    @apply bg-brand-bg text-brand-navy font-sans antialiased;
+    min-width: 1200px;
+    /* Raleway trae números de estilo antiguo por defecto; en cifras se ven desalineados */
+    font-feature-settings: 'lnum' 1;
+  }
+
+  select,
+  button,
+  input {
+    font-family: inherit;
+    font-feature-settings: inherit;
+  }
+}
+
+@layer components {
+  .card {
+    @apply bg-white rounded-xl border border-brand-border shadow-card;
+  }
+
+  .kpi-card {
+    @apply card p-4;
+  }
+
+  .section-title {
+    @apply text-[11px] font-semibold uppercase tracking-[0.12em] text-brand-text-muted mb-4;
+  }
+
+  .nav-item {
+    @apply flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium text-brand-text-secondary transition-all duration-200 hover:bg-brand-bg hover:text-brand-navy;
+  }
+
+  .nav-item.active {
+    @apply bg-brand-navy text-white hover:bg-brand-navy hover:text-white;
+  }
+
+  .btn-secondary {
+    @apply flex items-center gap-1 text-[10px] font-semibold px-2.5 py-1.5 rounded-lg border border-brand-border bg-white text-brand-text-secondary hover:border-brand-blue hover:text-brand-navy transition-colors disabled:opacity-40;
+  }
+
+  .delta-positive {
+    @apply text-brand-green-dark font-medium;
+  }
+
+  .delta-negative {
+    @apply text-alert-critical font-medium;
+  }
+}
+
+::-webkit-scrollbar {
+  width: 4px;
+  height: 4px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: #E1E8F0;
+  border-radius: 2px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #599BE4;
+}
