@@ -53,7 +53,7 @@ export default function App() {
   };
   const filtered = useMemo(
     () => (ds ? applyDimensionFilters(ds, filters) : null),
-    [ds, filters.vendor, filters.category, filters.prefix, filters.clientType],
+    [ds, filters.vendor, filters.category, filters.prefix, filters.channel, filters.clientType],
   );
 
   if (sales.status === 'unauthorized') return <LoginScreen onSuccess={sales.reload} />;

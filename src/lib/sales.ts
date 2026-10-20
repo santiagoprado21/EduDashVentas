@@ -1,4 +1,4 @@
-import type { SheetData } from '../hooks/useSalesData';
+import type { SalesPayload, ShopifyOrders } from '../hooks/useSalesData';
 
 export interface Sale {
   date: Date;
@@ -15,6 +15,7 @@ export interface Sale {
   item: string;
   ref: string;
   category: string;
+  channel: string;
   qty: number;
   gross: number;
   net: number;
@@ -35,6 +36,9 @@ export interface Dataset {
   vendorYears: Record<string, number[]>;
   categories: string[];
   prefixes: string[];
+  channels: string[];
+  /** Desde cuándo hay pedidos de Shopify para asignar canal; null = sin canales. */
+  channelsFrom: Date | null;
   lastDate: Date;
 }
 
@@ -72,6 +76,23 @@ function categoryOf(item: string): string {
   return CATEGORY_BY_WORD[word] ?? 'Otros';
 }
 
+export const UNCLASSIFIED = 'Sin clasificar';
+
+/** Facturas de ferias que no quedaron marcadas como "Ferias" en Shopify. */
+const FERIA_INVOICES = new Set(['EDU2145', 'EDU2183']);
+
+/** Mismas reglas y orden que la hoja Metodologia de "Rentabilidad por canal". */
+function channelOf(item: string, client: string, invoice: string, orders: ShopifyOrders | null, covered: boolean) {
+  if (/\bCB\b/.test(item)) return 'Colegio Bolívar';
+  if (/ferias y ferias/i.test(client)) return 'La Única';
+  if (!orders || !covered) return UNCLASSIFIED;
+  const kind = orders.byInvoice[invoice];
+  if (kind === 'ferias' || FERIA_INVOICES.has(invoice)) return 'Ferias';
+  if (kind === 'sede') return 'Sede Educambio';
+  if (kind) return 'E-commerce';
+  return 'Otros';
+}
+
 /** Ordena por venta total descendente. */
 function byNet(sales: Sale[], keyOf: (s: Sale) => string): string[] {
   const totals = new Map<string, number>();
@@ -79,9 +100,11 @@ function byNet(sales: Sale[], keyOf: (s: Sale) => string): string[] {
   return [...totals.entries()].sort((a, b) => b[1] - a[1]).map(([k]) => k);
 }
 
-export function parseDataset(data: SheetData): Dataset {
+export function parseDataset(data: SalesPayload): Dataset {
   const sales: Sale[] = [];
   const budgets: Budget[] = [];
+  const orders = data.orders ?? null;
+  const channelsFrom = orders?.from ? new Date(`${orders.from}T00:00:00`) : null;
 
   for (const r of data.rows) {
     if (r['Anulada']?.trim()) continue;
@@ -119,6 +142,13 @@ export function parseDataset(data: SheetData): Dataset {
       item: item || 'Sin nombre',
       ref: (r['Referencia'] ?? '').trim(),
       category: categoryOf(item),
+      channel: channelOf(
+        item,
+        client,
+        `${prefix}${invoiceNo}`.toUpperCase(),
+        orders,
+        channelsFrom != null && date >= channelsFrom,
+      ),
       qty: num(r['Q Item']),
       gross,
       net,
@@ -147,6 +177,8 @@ export function parseDataset(data: SheetData): Dataset {
     vendorYears,
     categories: byNet(sales, (s) => s.category),
     prefixes: byNet(sales, (s) => s.prefix),
+    channels: byNet(sales, (s) => s.channel).filter((c) => c !== UNCLASSIFIED),
+    channelsFrom,
     lastDate,
   };
 }

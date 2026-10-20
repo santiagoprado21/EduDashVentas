@@ -67,6 +67,14 @@ export default function FilterBar({ ds, filters, onChange }: Props) {
         options={[all('Todas'), ...toOptions(ds.categories)]}
         onChange={(v) => set('category', v)}
       />
+      {ds.channels.length > 0 && (
+        <FilterSelect
+          label="Canal"
+          value={filters.channel}
+          options={[all('Todos'), ...toOptions(ds.channels)]}
+          onChange={(v) => set('channel', v)}
+        />
+      )}
       <FilterSelect
         label="Prefijo"
         value={filters.prefix}

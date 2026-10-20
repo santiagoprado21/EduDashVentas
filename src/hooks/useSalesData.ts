@@ -6,11 +6,21 @@ export interface SheetData {
   fetchedAt: string;
 }
 
+export interface ShopifyOrders {
+  byInvoice: Record<string, 'ferias' | 'sede' | 'shopify'>;
+  from: string | null;
+}
+
+export interface SalesPayload extends SheetData {
+  /** null si el sheet de Shopify no está configurado o falló. */
+  orders?: ShopifyOrders | null;
+}
+
 type State =
-  | { status: 'loading'; data: SheetData | null }
+  | { status: 'loading'; data: SalesPayload | null }
   | { status: 'unauthorized'; data: null }
-  | { status: 'ready'; data: SheetData }
-  | { status: 'error'; data: SheetData | null; error: string };
+  | { status: 'ready'; data: SalesPayload }
+  | { status: 'error'; data: SalesPayload | null; error: string };
 
 export function useSalesData() {
   const [state, setState] = useState<State>({ status: 'loading', data: null });

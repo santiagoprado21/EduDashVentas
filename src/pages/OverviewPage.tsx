@@ -4,11 +4,13 @@ import RankingTable from '../components/RankingTable';
 import MonthlyChart from '../components/charts/MonthlyChart';
 import BudgetChart from '../components/charts/BudgetChart';
 import YearlyChart from '../components/charts/YearlyChart';
-import type { Dataset } from '../lib/sales';
+import ChannelChart from '../components/charts/ChannelChart';
+import { UNCLASSIFIED, type Dataset } from '../lib/sales';
 import { hasDimensionFilters, periodLabel, periodRange, type Filters } from '../lib/filters';
 import {
   MONTHS,
   budgetAttainment,
+  channelMonthly,
   cutoffFor,
   delta,
   monthlySeries,
@@ -18,7 +20,7 @@ import {
   summarize,
   yearlyTotals,
 } from '../lib/metrics';
-import { fmtCompact, fmtDate, fmtInt, fmtPct } from '../lib/format';
+import { fmtCompact, fmtDate, fmtDelta, fmtInt, fmtPct } from '../lib/format';
 
 interface Props {
   ds: Dataset;
@@ -33,7 +35,21 @@ export default function OverviewPage({ ds, filters }: Props) {
     const cutoff = cutoffFor(ds, year);
     const current = salesFor(ds, year, range);
     const previous = salesFor(ds, year - 1, range, cutoff.partial ? cutoff : undefined);
+
+    const channelsYear = ds.channelsFrom?.getFullYear() ?? Infinity;
+    const prevByChannel = new Map<string, number>();
+    if (year - 1 >= channelsYear) {
+      for (const s of previous) prevByChannel.set(s.channel, (prevByChannel.get(s.channel) ?? 0) + s.net);
+    }
+    const channels = rankBy(current, (s) => s.channel).map((r) => {
+      const p = prevByChannel.get(r.key);
+      return p ? { ...r, sub: `${fmtDelta((r.net - p) / p)} vs ${year - 1}` } : r;
+    });
+
     return {
+      channels,
+      channelsCovered: year >= channelsYear,
+      channelMonthly: channelMonthly(ds, year, range, channels.map((c) => c.key)),
       range,
       cutoff,
       cur: summarize(current),
@@ -61,7 +77,7 @@ export default function OverviewPage({ ds, filters }: Props) {
   const partialNote = cutoff.partial ? `Hasta ${fmtDate(ds.lastDate)}` : undefined;
 
   const attainmentHint = dimensionFiltered
-    ? 'Solo sin filtros de vendedor, categoría, prefijo o cliente'
+    ? 'Solo sin filtros de vendedor, categoría, canal, prefijo o cliente'
     : attainment
       ? `${MONTHS[attainment.range.from - 1]}–${MONTHS[attainment.range.to - 1]} · meta ${fmtCompact(attainment.budget)}`
       : 'Sin presupuesto en meses cerrados';
@@ -121,6 +137,30 @@ export default function OverviewPage({ ds, filters }: Props) {
         <MonthlyChart data={m.monthly} year={year} />
       </div>
 
+      {ds.channels.length > 0 && (
+        <div className="grid grid-cols-2 gap-5 items-start">
+          <RankingTable
+            title={`Canales · ${periodText}`}
+            keyLabel="Canal"
+            rows={m.channels}
+            note={
+              m.channelsCovered
+                ? undefined
+                : `Antes de ${ds.channelsFrom?.getFullYear()} no hay pedidos de Shopify para cruzar: solo se identifican Colegio Bolívar y La Única`
+            }
+          />
+          <div className="card p-4">
+            <h2 className="section-title">Ventas por canal y mes · {year}</h2>
+            <ChannelChart data={m.channelMonthly} channels={m.channels.map((c) => c.key)} />
+            {m.channels.some((c) => c.key === UNCLASSIFIED) && m.channelsCovered && (
+              <p className="text-[10px] text-brand-text-muted mt-2">
+                "{UNCLASSIFIED}" son ventas anteriores al primer pedido de Shopify
+              </p>
+            )}
+          </div>
+        </div>
+      )}
+
       <div className="grid grid-cols-2 gap-5">
         <div className="card p-4">
           <h2 className="section-title">Ejecutado vs presupuesto · {year}</h2>
@@ -129,7 +169,7 @@ export default function OverviewPage({ ds, filters }: Props) {
           ) : (
             <div className="h-[240px] flex items-center justify-center text-center px-6 text-[11px] text-brand-text-muted">
               {dimensionFiltered
-                ? 'El presupuesto es del total: quita los filtros de vendedor, categoría, prefijo y cliente'
+                ? 'El presupuesto es del total: quita los filtros de vendedor, categoría, canal, prefijo y cliente'
                 : `No hay presupuesto cargado para ${year}`}
             </div>
           )}

@@ -9,6 +9,7 @@ import {
   sessionCookie,
 } from './auth.js';
 import { fetchSheet, fetchTabs, type SheetData } from './sheets.js';
+import { fetchShopifyOrders, type ShopifyOrders } from './shopify.js';
 
 /** Subconjunto común entre Express y las funciones de Vercel. */
 export interface Req {
@@ -76,7 +77,43 @@ function sheetHandler(key: string, idVar: string, rangeVar: string, defaultRange
   };
 }
 
-export const salesHandler = sheetHandler('sales', 'SHEET_ID', 'SHEET_RANGE', 'Hoja 1');
+/** Ventas + pedidos de Shopify para asignar canal. Si Shopify falla, las ventas igual cargan. */
+export async function salesHandler(req: Req, res: Res) {
+  try {
+    if (!authorized(req)) {
+      res.status(401).json({ error: 'No autorizado' });
+      return;
+    }
+
+    const sheetId = process.env.SHEET_ID;
+    if (!sheetId) {
+      res.status(500).json({ error: 'Falta SHEET_ID en las variables de entorno' });
+      return;
+    }
+    const range = process.env.SHEET_RANGE ?? 'Hoja 1';
+    const shopifyId = process.env.SHOPIFY_SHEET_ID ?? process.env.INVENTORY_SHEET_ID;
+    const shopifyRange = process.env.SHOPIFY_RANGE ?? 'BD';
+    const force = req.query.refresh === '1';
+
+    const [sales, orders] = await Promise.all([
+      cached<SheetData>('sales', force, () => fetchSheet(sheetId, range)),
+      shopifyId
+        ? cached<ShopifyOrders>('shopify', force, () => fetchShopifyOrders(shopifyId, shopifyRange)).catch(
+            (err: unknown) => {
+              console.error('[shopify]', err instanceof Error ? err.message : err);
+              return null;
+            },
+          )
+        : null,
+    ]);
+
+    res.setHeader('Cache-Control', 'private, no-store');
+    res.json({ ...sales, orders });
+  } catch (err) {
+    handleError(res, err, 'sales');
+  }
+}
+
 export const inventoryHandler = sheetHandler('inventory', 'INVENTORY_SHEET_ID', 'INVENTORY_RANGE', 'Inventario');
 
 export async function feriasHandler(req: Req, res: Res) {

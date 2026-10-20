@@ -15,6 +15,18 @@ export const OUT_OF_PERIOD_OPACITY = 0.25;
 
 export const SERIES = ['#181856', '#599BE4', '#89BF52', '#D2312C', '#EF7145', '#C042B6', '#469C6A', '#FBD94B'];
 
+export const CHANNEL_COLORS: Record<string, string> = {
+  'Colegio Bolívar': '#181856',
+  'E-commerce': '#599BE4',
+  'La Única': '#C042B6',
+  Ferias: '#EF7145',
+  'Sede Educambio': '#89BF52',
+  Otros: '#9A9DB0',
+  'Sin clasificar': '#D5DCE6',
+};
+
+export const channelColor = (channel: string, i = 0) => CHANNEL_COLORS[channel] ?? SERIES[i % SERIES.length];
+
 export const axisProps = {
   tick: { fontSize: 9, fill: COLORS.tick },
   axisLine: false,

@@ -10,6 +10,7 @@ export interface Filters {
   vendor: string;
   category: string;
   prefix: string;
+  channel: string;
   clientType: ClientType;
 }
 
@@ -18,6 +19,7 @@ export const DIMENSION_DEFAULTS = {
   vendor: 'all',
   category: 'all',
   prefix: 'all',
+  channel: 'all',
   clientType: 'all' as ClientType,
 };
 
@@ -52,13 +54,18 @@ export const PERIOD_OPTIONS = [
 
 /** El presupuesto es del total, así que solo aplica sin filtros de dimensión. */
 export const hasDimensionFilters = (f: Filters) =>
-  f.vendor !== 'all' || f.category !== 'all' || f.prefix !== 'all' || f.clientType !== 'all';
+  f.vendor !== 'all' ||
+  f.category !== 'all' ||
+  f.prefix !== 'all' ||
+  f.channel !== 'all' ||
+  f.clientType !== 'all';
 
 export const activeFilterCount = (f: Filters) =>
   (f.period !== 'all' ? 1 : 0) +
   (f.vendor !== 'all' ? 1 : 0) +
   (f.category !== 'all' ? 1 : 0) +
   (f.prefix !== 'all' ? 1 : 0) +
+  (f.channel !== 'all' ? 1 : 0) +
   (f.clientType !== 'all' ? 1 : 0);
 
 function matches(s: Sale, f: Filters): boolean {
@@ -66,6 +73,7 @@ function matches(s: Sale, f: Filters): boolean {
     (f.vendor === 'all' || s.vendor === f.vendor) &&
     (f.category === 'all' || s.category === f.category) &&
     (f.prefix === 'all' || s.prefix === f.prefix) &&
+    (f.channel === 'all' || s.channel === f.channel) &&
     (f.clientType === 'all' || (f.clientType === 'generic') === s.genericClient)
   );
 }

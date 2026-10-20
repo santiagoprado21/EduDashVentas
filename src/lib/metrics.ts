@@ -82,6 +82,22 @@ export function monthlySeries(ds: Dataset, year: number, range: MonthRange) {
   }));
 }
 
+/** Ventas del año por mes, una columna por canal (para barras apiladas). */
+export function channelMonthly(ds: Dataset, year: number, range: MonthRange, channels: string[]) {
+  const cutoff = cutoffFor(ds, year);
+  const rows = MONTHS.map((label, i) => ({
+    label,
+    inPeriod: inRange(i + 1, range),
+    ...Object.fromEntries(channels.map((c) => [c, i + 1 > cutoff.month ? null : 0])),
+  })) as ({ label: string; inPeriod: boolean } & Record<string, number | null>)[];
+  for (const s of ds.sales) {
+    if (s.year !== year) continue;
+    const row = rows[s.month - 1];
+    if (row[s.channel] != null) row[s.channel] = (row[s.channel] as number) + s.net;
+  }
+  return rows;
+}
+
 export function quarterlyBudget(ds: Dataset, year: number, range: MonthRange) {
   const actual = [0, 0, 0, 0];
   const budget = [0, 0, 0, 0];
