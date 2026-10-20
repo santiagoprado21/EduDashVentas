@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
-import { AlertTriangle, LayoutDashboard, Package, Store, Table2, Users } from 'lucide-react';
+import { AlertTriangle, Boxes, LayoutDashboard, Package, Store, Table2, Users } from 'lucide-react';
 import TopBar from './components/TopBar';
 import Sidebar, { type NavItem } from './components/Sidebar';
 import FilterBar from './components/FilterBar';
@@ -10,8 +10,10 @@ import OverviewPage from './pages/OverviewPage';
 import ProductsPage from './pages/ProductsPage';
 import ClientsPage from './pages/ClientsPage';
 import FeriasPage from './pages/FeriasPage';
-import { useSalesData } from './hooks/useSalesData';
-import { useFeriasData } from './hooks/useFeriasData';
+import InventoryPage from './pages/InventoryPage';
+import { useSalesData, type SheetData } from './hooks/useSalesData';
+import { useApiData } from './hooks/useApiData';
+import type { FeriasPayload } from './lib/ferias';
 import { parseDataset } from './lib/sales';
 import { DIMENSION_DEFAULTS, applyDimensionFilters, type Filters } from './lib/filters';
 
@@ -22,8 +24,11 @@ const NAV: NavItem[] = [
   { id: 'products', label: 'Productos', icon: Package },
   { id: 'clients', label: 'Clientes', icon: Users },
   { id: 'ferias', label: 'Ferias', icon: Store },
+  { id: 'inventory', label: 'Inventario', icon: Boxes },
   { id: 'data', label: 'Datos', icon: Table2 },
 ];
+
+const SALES_TABS = ['overview', 'products', 'clients'];
 
 type FilterState = Omit<Filters, 'year'> & { year: number | null };
 
@@ -31,8 +36,15 @@ export default function App() {
   const [tab, setTab] = useState('overview');
   const [filterState, setFilterState] = useState<FilterState>({ year: null, ...DIMENSION_DEFAULTS });
   const sales = useSalesData();
-  const ferias = useFeriasData(sales.data != null);
+  const ferias = useApiData<FeriasPayload>('/api/ferias', sales.data != null);
+  const inventory = useApiData<SheetData>('/api/inventory', sales.data != null);
   const current = NAV.find((n) => n.id === tab)!;
+  const secondary =
+    tab === 'ferias'
+      ? { source: ferias, name: 'ferias' }
+      : tab === 'inventory'
+        ? { source: inventory, name: 'inventario' }
+        : null;
 
   const ds = useMemo(() => (sales.data ? parseDataset(sales.data) : null), [sales.data]);
   const filters: Filters = {
@@ -49,11 +61,12 @@ export default function App() {
   return (
     <div className="min-h-screen bg-brand-bg">
       <TopBar
-        fetchedAt={tab === 'ferias' ? ferias.data?.fetchedAt : sales.data?.fetchedAt}
-        loading={sales.status === 'loading' || ferias.status === 'loading'}
+        fetchedAt={(secondary ? secondary.source.data : sales.data)?.fetchedAt}
+        loading={[sales, ferias, inventory].some((s) => s.status === 'loading')}
         onRefresh={() => {
           sales.refresh();
           ferias.refresh();
+          inventory.refresh();
         }}
         onLogout={sales.logout}
       />
@@ -96,24 +109,26 @@ export default function App() {
           </div>
         )}
 
-        {tab === 'ferias' && ferias.status === 'error' && (
+        {secondary?.source.status === 'error' && (
           <div className="card mb-5 p-4 flex items-start gap-3 border-red-200 bg-red-50">
             <AlertTriangle size={14} className="text-alert-critical mt-0.5" />
             <div>
-              <div className="text-[12px] font-semibold text-red-700">No se pudo leer el sheet de ferias</div>
-              <div className="text-[11px] text-red-600 mt-0.5">{ferias.error}</div>
+              <div className="text-[12px] font-semibold text-red-700">
+                No se pudo leer el sheet de {secondary.name}
+              </div>
+              <div className="text-[11px] text-red-600 mt-0.5">{secondary.source.error}</div>
             </div>
           </div>
         )}
 
-        {tab === 'ferias' && sales.data && !ferias.data && ferias.status === 'loading' && (
+        {secondary && sales.data && !secondary.source.data && secondary.source.status === 'loading' && (
           <div className="flex flex-col items-center py-24 gap-3">
             <div className="w-8 h-8 border-2 border-brand-border border-t-brand-navy rounded-full animate-spin" />
-            <span className="text-[12px] text-brand-text-muted">Cargando ferias…</span>
+            <span className="text-[12px] text-brand-text-muted">Cargando {secondary.name}…</span>
           </div>
         )}
 
-        {ds && tab !== 'data' && tab !== 'ferias' && <FilterBar ds={ds} filters={filters} onChange={setFilterState} />}
+        {ds && SALES_TABS.includes(tab) && <FilterBar ds={ds} filters={filters} onChange={setFilterState} />}
 
         <AnimatePresence mode="wait">
           {sales.data && filtered && (
@@ -128,6 +143,7 @@ export default function App() {
               {tab === 'products' && <ProductsPage ds={filtered} filters={filters} />}
               {tab === 'clients' && <ClientsPage ds={filtered} filters={filters} />}
               {tab === 'ferias' && ferias.data && <FeriasPage data={ferias.data} />}
+              {tab === 'inventory' && inventory.data && <InventoryPage data={inventory.data} />}
               {tab === 'data' && <DataPreview data={sales.data} />}
             </motion.div>
           )}

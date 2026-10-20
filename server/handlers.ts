@@ -53,26 +53,31 @@ function handleError(res: Res, err: unknown, tag: string) {
   res.status(err instanceof AuthConfigError ? 500 : 502).json({ error: message });
 }
 
-export async function salesHandler(req: Req, res: Res) {
-  try {
-    if (!authorized(req)) {
-      res.status(401).json({ error: 'No autorizado' });
-      return;
-    }
+function sheetHandler(key: string, idVar: string, rangeVar: string, defaultRange: string) {
+  return async (req: Req, res: Res) => {
+    try {
+      if (!authorized(req)) {
+        res.status(401).json({ error: 'No autorizado' });
+        return;
+      }
 
-    const sheetId = process.env.SHEET_ID;
-    const range = process.env.SHEET_RANGE ?? 'Hoja 1';
-    if (!sheetId) {
-      res.status(500).json({ error: 'Falta SHEET_ID en las variables de entorno' });
-      return;
-    }
+      const sheetId = process.env[idVar];
+      const range = process.env[rangeVar] ?? defaultRange;
+      if (!sheetId) {
+        res.status(500).json({ error: `Falta ${idVar} en las variables de entorno` });
+        return;
+      }
 
-    res.setHeader('Cache-Control', 'private, no-store');
-    res.json(await cached<SheetData>('sales', req.query.refresh === '1', () => fetchSheet(sheetId, range)));
-  } catch (err) {
-    handleError(res, err, 'sales');
-  }
+      res.setHeader('Cache-Control', 'private, no-store');
+      res.json(await cached<SheetData>(key, req.query.refresh === '1', () => fetchSheet(sheetId, range)));
+    } catch (err) {
+      handleError(res, err, key);
+    }
+  };
 }
+
+export const salesHandler = sheetHandler('sales', 'SHEET_ID', 'SHEET_RANGE', 'Hoja 1');
+export const inventoryHandler = sheetHandler('inventory', 'INVENTORY_SHEET_ID', 'INVENTORY_RANGE', 'Inventario');
 
 export async function feriasHandler(req: Req, res: Res) {
   try {
